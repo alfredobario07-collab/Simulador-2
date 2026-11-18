@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Desgaste y vibración de una tubería</title>
+<style>
+:root{
+  --bg:#f5f7fa;--surface:#ffffff;--text:#1b2733;--muted:#5d6b7a;--border:#d9e0e8;
+  --accent:#1f6feb;--accent2:#e5603b;--ok:#1a7f4b;--okbg:#e3f5ea;--warn:#b42318;--warnbg:#fdeceb;
+  color-scheme:light;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10151b;--surface:#18202a;--text:#e6ebf0;--muted:#98a6b5;--border:#2a3644;
+    --accent:#5b9dff;--accent2:#ff8a65;--ok:#5fd394;--okbg:#14301f;--warn:#ff8b80;--warnbg:#3a1815;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10151b;--surface:#18202a;--text:#e6ebf0;--muted:#98a6b5;--border:#2a3644;
+  --accent:#5b9dff;--accent2:#ff8a65;--ok:#5fd394;--okbg:#14301f;--warn:#ff8b80;--warnbg:#3a1815;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.5rem;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 16px}
+.note{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:.9rem;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px}
+.card h2{font-size:1.05rem;margin:0 0 2px}
+.eq{color:var(--muted);font-size:.85rem;margin:0 0 12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:flex;flex-direction:column;font-size:.8rem;color:var(--muted);gap:3px}
+input{font:inherit;font-size:.95rem;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 9px;width:100%}
+input:focus{outline:2px solid var(--accent);outline-offset:0}
+.actions{display:flex;gap:10px;margin:16px 0;flex-wrap:wrap}
+button{font:inherit;border-radius:10px;border:1px solid var(--border);padding:10px 18px;cursor:pointer;background:var(--surface);color:var(--text)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px}
+.stat{background:var(--bg);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font-size:1.15rem}
+.stat span{font-size:.75rem;color:var(--muted)}
+.badge{display:inline-block;border-radius:8px;padding:6px 10px;font-size:.88rem;margin-top:4px}
+.badge.ok{background:var(--okbg);color:var(--ok)}
+.badge.warn{background:var(--warnbg);color:var(--warn)}
+.chart{position:relative;height:300px;margin-top:8px}
+.err{color:var(--warn);font-size:.9rem;min-height:1.2em;margin:6px 0 0}
+.sec{font-size:1.2rem;margin:26px 0 10px}
+.cv{width:100%;display:block;background:var(--bg);border-radius:10px}
+#cvD{height:300px}#cvV{height:260px}#cvF{height:260px}
+.ctl{display:flex;gap:10px;align-items:center;margin-top:10px}
+.ctl button{padding:7px 12px;white-space:nowrap;font-size:.9rem}
+.ctl input[type=range]{flex:1;padding:0;border:none;background:none;accent-color:var(--accent)}
+select{font:inherit;font-size:.85rem;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px}
+.rd{margin-top:8px;font-size:.9rem;min-height:3em}
+.leg{color:var(--muted);font-size:.78rem;margin:6px 0 0}
+.say{margin-top:8px;padding:10px 12px;border-left:4px solid var(--accent);background:var(--bg);border-radius:8px;font-size:.88rem;line-height:1.5;min-height:3.4em}
+footer{color:var(--muted);font-size:.8rem;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Desgaste y vibración de una tubería</h1>
+  <p class="sub">ABP · Sistema de bombeo hidráulico</p>
+  <div class="note">Los valores iniciales son hipotéticos y solo sirven para el ejemplo académico. Reemplázalos por datos medidos o fuentes técnicas antes de tomar decisiones reales. El espesor mínimo de 6 mm no es un límite normativo ni un criterio de seguridad.</div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Modelo de desgaste</h2>
+      <p class="eq">de/dt = −k → e(t) = e₀ − k·t</p>
+      <div class="fields">
+        <label>Espesor inicial e₀ (mm)<input id="e0" type="number" step="any" value="8"></label>
+        <label>Tasa de desgaste k (mm/h)<input id="k" type="number" step="any" value="0.002"></label>
+        <label>Umbral ilustrativo (mm)<input id="emin" type="number" step="any" value="6"></label>
+        <label>Horas de simulación<input id="horas" type="number" step="any" value="1500"></label>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Modelo de vibración</h2>
+      <p class="eq">m·x″ + c·x′ + K·x = F₀·cos(ωt)</p>
+      <div class="fields">
+        <label>Masa efectiva m (kg)<input id="m" type="number" step="any" value="10"></label>
+        <label>Amortiguamiento c (N·s/m)<input id="c" type="number" step="any" value="20"></label>
+        <label>Rigidez K (N/m)<input id="K" type="number" step="any" value="200"></label>
+        <label>Fuerza F₀ (N)<input id="F0" type="number" step="any" value="10"></label>
+        <label>Frecuencia ω (rad/s)<input id="omega" type="number" step="any" value="3"></label>
+        <label>Desplaz. inicial x₀ (m)<input id="x0" type="number" step="any" value="0.01"></label>
+        <label>Velocidad inicial v₀ (m/s)<input id="v0" type="number" step="any" value="0"></label>
+        <label>Duración (s)<input id="tf" type="number" step="any" value="10"></label>
+      </div>
+    </section>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="calc">Simular</button>
+    <button id="reset">Restablecer valores</button>
+  </div>
+  <p class="err" id="err" role="alert"></p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Resultados del desgaste</h2>
+      <div class="results" id="resD"></div>
+      <div id="alertD"></div>
+      <div class="chart"><canvas id="chD"></canvas></div>
+    </section>
+    <section class="card">
+      <h2>Resultados de la vibración</h2>
+      <div class="results" id="resV"></div>
+      <div class="badge ok" style="margin-top:4px">Resultados válidos solo para los parámetros introducidos.</div>
+      <div class="chart"><canvas id="chV"></canvas></div>
+    </section>
+  </div>
+  <h2 class="sec">Animación del proceso</h2>
+  <div class="grid">
+    <section class="card">
+      <h2>Desgaste: corte transversal</h2>
+      <p class="eq">El anillo es la pared; el centro, el fluido</p>
+      <canvas id="cvD" class="cv"></canvas>
+      <div class="ctl"><button id="plD">▶ Reproducir</button><input id="sD" type="range" min="0" max="1500" step="any" value="0" aria-label="Tiempo de operación en horas"><select id="spD" aria-label="Velocidad"><option value="0.5">×0,5</option><option value="1" selected>×1</option><option value="2">×2</option></select></div>
+      <div class="rd" id="rD"></div>
+      <div class="say" id="syD"></div>
+      <p class="leg">Punteado gris: pared original. Punteado naranja: umbral ilustrativo. El color pasa de verde a rojo al acercarse al umbral. El grosor está exagerado para verse mejor.</p>
+    </section>
+    <section class="card">
+      <h2>Vibración: tubería entre soportes</h2>
+      <p class="eq">La flecha es la fuerza F₀·cos(ωt)</p>
+      <canvas id="cvV" class="cv"></canvas>
+      <div class="ctl"><button id="plV">▶ Reproducir</button><input id="sV" type="range" min="0" max="10" step="any" value="0" aria-label="Tiempo en segundos"><select id="spV" aria-label="Velocidad"><option value="0.25">×0,25</option><option value="0.5" selected>×0,5</option><option value="1">×1</option></select></div>
+      <div class="results" id="cfV" style="margin-top:10px"></div>
+      <div class="rd" id="rV"></div>
+      <div class="say" id="syV"></div>
+      <p class="leg">El desplazamiento se amplifica para verse; la forma de la tubería es ilustrativa.</p>
+    </section>
+  </div>
+  <section class="card" style="margin-top:16px">
+    <h2>Flujo de agua y desgaste progresivo</h2>
+    <p class="eq">Vista lateral: el agua circula y la pared interna se adelgaza con el tiempo</p>
+    <canvas id="cvF" class="cv"></canvas>
+    <div class="ctl"><button id="plF">▶ Reproducir</button><input id="sF" type="range" min="0" max="1500" step="any" value="0" aria-label="Tiempo de operación en horas"><select id="spF" aria-label="Velocidad"><option value="0.5">×0,5</option><option value="1" selected>×1</option><option value="2">×2</option></select></div>
+    <div class="rd" id="rF"></div>
+    <div class="say" id="syF"></div>
+    <p class="leg">Los puntos azules son el agua. Las partículas de colores son material que se desprende de la pared. La superficie se vuelve más rugosa y el color pasa de verde a rojo según el desgaste. Línea naranja: umbral ilustrativo. Escala exagerada.</p>
+  </section>
+  <footer>Vibración resuelta con Runge-Kutta de 4.º orden; desgaste con la solución analítica lineal.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const IDS = ["e0","k","emin","horas","m","c","K","F0","omega","x0","v0","tf"];
+const DEFAULTS = {};
+IDS.forEach(i => DEFAULTS[i] = $(i).value);
+let chD = null, chV = null;
+
+const val = id => parseFloat($(id).value);
+const fmt = (n, d) => Number(n).toLocaleString("es-ES", {minimumFractionDigits:d, maximumFractionDigits:d});
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function simularDesgaste(e0, k, emin, horas){
+  const N = 500, t = [], e = [];
+  for (let i = 0; i < N; i++){
+    const ti = horas * i / (N - 1);
+    t.push(ti);
+    e.push(Math.max(e0 - k * ti, 0));
+  }
+  let tUmbral = null, msg = "", ok = true;
+  if (k <= 0){
+    msg = "La tasa debe ser mayor que cero para calcular el tiempo hasta el umbral."; ok = false;
+  } else if (e0 <= emin){
+    tUmbral = 0; msg = "ALERTA: el espesor inicial ya está en el umbral o por debajo."; ok = false;
+  } else {
+    tUmbral = (e0 - emin) / k;
+    if (tUmbral <= horas){ msg = "ALERTA: el modelo estima que se alcanzará el umbral durante el periodo simulado."; ok = false; }
+    else msg = "El umbral no se alcanza dentro del periodo simulado.";
+  }
+  return {t, e, tUmbral, msg, ok};
+}
+
+function simularVibracion(m, c, K, F0, w, x0, v0, tf){
+  const N = 1500, out = {t:[], x:[]};
+  const sub = 20, h = tf / (N - 1) / sub;
+  const f = (t, x, v) => (F0 * Math.cos(w * t) - c * v - K * x) / m;
+  let x = x0, v = v0, t = 0, maxX = Math.abs(x0), maxV = Math.abs(v0);
+  out.t.push(0); out.x.push(x);
+  for (let i = 1; i < N; i++){
+    for (let s = 0; s < sub; s++){
+      const k1x = v,              k1v = f(t, x, v);
+      const k2x = v + h/2*k1v,    k2v = f(t + h/2, x + h/2*k1x, v + h/2*k1v);
+      const k3x = v + h/2*k2v,    k3v = f(t + h/2, x + h/2*k2x, v + h/2*k2v);
+      const k4x = v + h*k3v,      k4v = f(t + h, x + h*k3x, v + h*k3v);
+      x += h/6 * (k1x + 2*k2x + 2*k3x + k4x);
+      v += h/6 * (k1v + 2*k2v + 2*k3v + k4v);
+      t += h;
+    }
+    out.t.push(i * tf / (N - 1)); out.x.push(x);
+    maxX = Math.max(maxX, Math.abs(x)); maxV = Math.max(maxV, Math.abs(v));
+  }
+  return {...out, maxX, maxV};
+}
+
+function stat(label, value){ return `<div class="stat"><b>${value}</b><span>${label}</span></div>`; }
+
+function chartOpts(xTitle, yTitle){
+  const txt = css("--muted"), grid = css("--border");
+  return {
+    responsive:true, maintainAspectRatio:false, animation:false,
+    interaction:{mode:"index", intersect:false},
+    plugins:{legend:{labels:{color:css("--text")}}},
+    scales:{
+      x:{type:"linear", title:{display:true, text:xTitle, color:txt}, ticks:{color:txt}, grid:{color:grid}},
+      y:{title:{display:true, text:yTitle, color:txt}, ticks:{color:txt}, grid:{color:grid}}
+    },
+    elements:{point:{radius:0}}
+  };
+}
+
+function simular(){
+  const v = {}; IDS.forEach(i => v[i] = val(i));
+  const err = $("err");
+  if (IDS.some(i => !isFinite(v[i]))){ err.textContent = "Completa todos los campos con valores numéricos."; return; }
+  if (v.m <= 0 || v.tf <= 0 || v.horas <= 0){ err.textContent = "La masa, la duración y las horas de simulación deben ser mayores que cero."; return; }
+  err.textContent = "";
+
+  const d = simularDesgaste(v.e0, v.k, v.emin, v.horas);
+  const eFin = d.e[d.e.length - 1];
+  $("resD").innerHTML =
+    stat("Espesor inicial", fmt(v.e0, 3) + " mm") +
+    stat("Tasa de desgaste", fmt(v.k, 6) + " mm/h") +
+    stat(`Espesor a las ${fmt(v.horas, 1)} h`, fmt(eFin, 3) + " mm") +
+    stat(`Tiempo hasta ${fmt(v.emin, 2)} mm`, d.tUmbral === null ? "—" : fmt(d.tUmbral, 1) + " h");
+  $("alertD").innerHTML = `<div class="badge ${d.ok ? "ok" : "warn"}">${d.msg}</div>`;
+
+  const s = simularVibracion(v.m, v.c, v.K, v.F0, v.omega, v.x0, v.v0, v.tf);
+  $("resV").innerHTML =
+    stat("Desplazamiento máx. absoluto", fmt(s.maxX, 6) + " m") +
+    stat("Velocidad máx. absoluta", fmt(s.maxV, 6) + " m/s");
+
+  const a = css("--accent"), b = css("--accent2");
+  initViz(v, d, s);
+  if (chD) chD.destroy();
+  if (chV) chV.destroy();
+  chD = new Chart($("chD"), {
+    type:"line",
+    data:{datasets:[
+      {label:"Espesor estimado", data:d.t.map((t,i)=>({x:t,y:d.e[i]})), borderColor:a, borderWidth:2},
+      {label:"Umbral ilustrativo", data:[{x:0,y:v.emin},{x:v.horas,y:v.emin}], borderColor:b, borderDash:[6,4], borderWidth:2}
+    ]},
+    options:chartOpts("Tiempo de operación (horas)", "Espesor (mm)"), plugins:[cursor]
+  });
+  chV = new Chart($("chV"), {
+    type:"line",
+    data:{datasets:[{label:"Desplazamiento de la tubería", data:s.t.map((t,i)=>({x:t,y:s.x[i]})), borderColor:a, borderWidth:2}]},
+    options:chartOpts("Tiempo (segundos)", "Desplazamiento (m)"), plugins:[cursor]
+  });
+  chD.$t = chV.$t = 0;
+}
+
+/* ---- Animación ---- */
+let ST = null, raf = 0, last = 0, FT = 0;
+const anim = {D:false, V:false}, TAU = Math.PI * 2;
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+
+const cursor = {id:"cursor", afterDatasetsDraw(ch){
+  if (ch.$t == null) return;
+  const a = ch.chartArea, px = ch.scales.x.getPixelForValue(ch.$t);
+  if (px < a.left || px > a.right) return;
+  const c = ch.ctx; c.save(); c.strokeStyle = css("--accent2"); c.lineWidth = 2; c.setLineDash([4, 3]);
+  c.beginPath(); c.moveTo(px, a.top); c.lineTo(px, a.bottom); c.stroke(); c.restore();
+}};
+
+function legend(g, items, x, y){
+  g.font = "11px system-ui,sans-serif"; g.textAlign = "left";
+  items.forEach(([c, txt], i) => { g.fillStyle = c; g.fillRect(x, y + i * 16, 10, 10); g.fillStyle = css("--muted"); g.fillText(txt, x + 15, y + 9 + i * 16); });
+}
+
+function wearMsg(v, e, t){
+  const lost = v.e0 - e, left = v.k > 0 ? (e - v.emin) / v.k : Infinity;
+  const frac = v.e0 > v.emin ? clamp(lost / (v.e0 - v.emin), 0, 1) : 1;
+  if (e <= v.emin) return "🔴 Umbral alcanzado: el modelo indica que la pared ya llegó al espesor ilustrativo. Aquí se revisaría o reemplazaría el tubo.";
+  if (t <= 0) return "🟢 Tubería nueva: la pared tiene todo su espesor y el agua aún no empieza a erosionarla. Pulsa Reproducir para avanzar en el tiempo.";
+  if (frac < .4) return `🟢 El agua erosiona la pared de forma lenta y constante. Se perdieron ${fmt(lost, 3)} mm (zona naranja).`;
+  if (frac < .8) return `🟡 El desgaste sigue en línea recta (${fmt(v.k, 4)} mm por hora). Faltan ${fmt(left, 0)} h para llegar al umbral.`;
+  return `🟠 Zona de precaución: la pared está cerca del umbral y faltan ${fmt(left, 0)} h.`;
+}
+
+function vibInfo(v){
+  if (v.K <= 0 || v.m <= 0) return null;
+  const wn = Math.sqrt(v.K / v.m), z = v.c / (2 * Math.sqrt(v.K * v.m));
+  return {wn, z, r: v.omega / wn, tau: z > 0 ? 1 / (z * wn) : Infinity};
+}
+
+function prep(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  return {g, w, h};
+}
+
+function drawD(){
+  if (!ST) return;
+  const v = ST.v, {g, w, h} = prep($("cvD"));
+  const t = +$("sD").value, e = Math.max(v.e0 - v.k * t, 0);
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 16, W = R * 0.42;
+  const ri = Math.max(0, R - W * (v.e0 > 0 ? e / v.e0 : 0)), r0 = R - W;
+  const rt = R - W * clamp(v.emin / (v.e0 || 1), 0, 1);
+  const frac = v.e0 > v.emin ? clamp((v.e0 - e) / (v.e0 - v.emin), 0, 1) : 1;
+  g.fillStyle = css("--accent"); g.globalAlpha = .22;
+  g.beginPath(); g.arc(cx, cy, ri, 0, TAU); g.fill(); g.globalAlpha = 1;
+  g.fillStyle = css("--accent2"); g.globalAlpha = .4; g.beginPath(); g.arc(cx, cy, ri, 0, TAU); g.arc(cx, cy, r0, 0, TAU, true); g.fill("evenodd"); g.globalAlpha = 1;
+  if (anim.D) for (let q = 0; q < 3; q++){ const p = (FT * .5 + q / 3) % 1; g.strokeStyle = css("--accent"); g.globalAlpha = (1 - p) * .5; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, Math.max(ri * p * .95, 0), 0, TAU); g.stroke(); }
+  g.globalAlpha = 1;
+  g.fillStyle = `hsl(${150 * (1 - frac)},65%,46%)`;
+  g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.moveTo(cx + ri, cy); g.arc(cx, cy, ri, 0, TAU, true); g.fill("evenodd");
+  g.lineWidth = 2; g.strokeStyle = css("--border"); g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.stroke();
+  g.lineWidth = 1.5; g.setLineDash([2, 4]); g.strokeStyle = css("--muted");
+  g.beginPath(); g.arc(cx, cy, r0, 0, TAU); g.stroke();
+  g.lineWidth = 2; g.setLineDash([6, 4]); g.strokeStyle = css("--accent2");
+  g.beginPath(); g.arc(cx, cy, Math.max(rt, 0), 0, TAU); g.stroke(); g.setLineDash([]);
+  g.fillStyle = css("--text"); g.textAlign = "center";
+  g.font = "bold 22px system-ui,sans-serif"; g.fillText(fmt(e, 3) + " mm", cx, cy + 4);
+  g.font = "12px system-ui,sans-serif"; g.fillStyle = css("--muted"); g.fillText("espesor de pared", cx, cy + 22);
+  const loss = v.e0 > 0 ? (v.e0 - e) / v.e0 * 100 : 0, hit = e <= v.emin;
+  legend(g, [["hsl(150,65%,46%)", "Pared de la tubería"], [css("--accent"), "Agua (fluye hacia ti)"], [css("--accent2"), "Material perdido"]], 8, 8);
+  $("syD").textContent = wearMsg(v, e, t);
+  if (chD){ chD.$t = t; chD.draw(); }
+  $("rD").innerHTML = `t = ${fmt(t, 1)} h · desgaste = ${fmt(loss, 1)} %<br><span class="badge ${hit ? "warn" : "ok"}">${hit ? "Umbral alcanzado" : "Por encima del umbral"}</span>`;
+}
+
+function drawV(){
+  if (!ST) return;
+  const {v, s} = ST, {g, w, h} = prep($("cvV"));
+  const t = +$("sV").value, n = s.x.length;
+  const x = s.x[clamp(Math.round(t / v.tf * (n - 1)), 0, n - 1)];
+  const xl = 44, xr = w - 44, xm = w / 2, y0 = h / 2 + 10;
+  const px = x / Math.max(s.maxX, 1e-12) * h * 0.26, F = v.F0 * Math.cos(v.omega * t);
+  g.setLineDash([4, 4]); g.lineWidth = 1.5; g.strokeStyle = css("--border");
+  g.beginPath(); g.moveTo(xl, y0); g.lineTo(xr, y0); g.stroke(); g.setLineDash([]);
+  g.fillStyle = css("--muted");
+  [xl, xr].forEach(X => { g.beginPath(); g.moveTo(X, y0 + 14); g.lineTo(X - 14, y0 + 40); g.lineTo(X + 14, y0 + 40); g.closePath(); g.fill(); });
+  const path = () => { g.beginPath(); g.moveTo(xl, y0); g.quadraticCurveTo(xm, y0 - 2 * px, xr, y0); };
+  path(); g.lineWidth = 24; g.strokeStyle = css("--muted"); g.stroke();
+  path(); g.lineWidth = 14; g.strokeStyle = css("--accent"); g.stroke();
+  if (v.F0 !== 0){
+    const L = F / Math.abs(v.F0) * h * 0.22, ym = y0 - px, tip = ym - L, sg = Math.sign(L);
+    g.strokeStyle = g.fillStyle = css("--accent2"); g.lineWidth = 3;
+    g.beginPath(); g.moveTo(xm, ym); g.lineTo(xm, tip); g.stroke();
+    if (Math.abs(L) > 6){ g.beginPath(); g.moveTo(xm, tip); g.lineTo(xm - 6, tip + sg * 10); g.lineTo(xm + 6, tip + sg * 10); g.closePath(); g.fill(); }
+    g.font = "12px system-ui,sans-serif"; g.textAlign = "left"; g.fillText("F(t)", xm + 10, tip);
+  }
+  legend(g, [[css("--muted"), "Soporte fijo"], [css("--accent"), "Tubería con agua"], [css("--accent2"), "Fuerza F(t)"]], 8, 8);
+  g.fillStyle = css("--muted"); g.textAlign = "right"; g.font = "11px system-ui,sans-serif"; g.fillText("posición de reposo", xr, y0 - 6);
+  const I = ST.I, ii = clamp(Math.round(t / v.tf * (n - 1)), 1, n - 2), vel = s.x[ii + 1] - s.x[ii - 1];
+  const mv = Math.abs(vel) < s.maxX * .004 ? "⏸ La tubería está en un extremo y cambia de sentido." : (vel > 0 ? "⬆ La tubería sube." : "⬇ La tubería baja.");
+  const fx = v.F0 === 0 ? "Sin fuerza externa (F₀ = 0): es una vibración libre." : (F * vel > 0 ? "🟢 La fuerza empuja en el mismo sentido del movimiento: le aporta energía." : "🔴 La fuerza va contra el movimiento: lo frena.");
+  let rg = "";
+  if (I) rg = !isFinite(I.tau) ? "Sin amortiguamiento: el movimiento inicial no se apaga nunca." : (v.F0 !== 0 && t >= 3 * I.tau ? "Régimen permanente: la tubería ya oscila a la frecuencia de la fuerza." : "Régimen transitorio: todavía se nota el movimiento inicial, que se apaga poco a poco.");
+  if (I && v.F0 !== 0 && Math.abs(I.r - 1) < .15 && I.z < .7) rg += " ⚠ Cerca de la resonancia: la amplitud se amplifica.";
+  $("syV").innerHTML = [mv, fx, rg].filter(Boolean).join("<br>");
+  if (chV){ chV.$t = t; chV.draw(); }
+  $("rV").innerHTML = `t = ${fmt(t, 2)} s · x = ${fmt(x * 1000, 3)} mm · F = ${fmt(F, 2)} N`;
+}
+
+let PF = [], DB = [], NZ = [];
+function initFlow(){
+  PF = Array.from({length: 80}, () => ({x: Math.random(), y: Math.random(), v: .6 + Math.random() * .8, r: 1.5 + Math.random() * 1.5}));
+  DB = [];
+  NZ = Array.from({length: 200}, (_, i) => Math.sin(i * .9) * .5 + Math.sin(i * 2.3 + 1) * .3 + Math.sin(i * 5.1) * .2);
+}
+
+function drawF(dt){
+  if (!ST) return;
+  const v = ST.v, {g, w, h} = prep($("cvF"));
+  const t = +$("sF").value, e = Math.max(v.e0 - v.k * t, 0);
+  const frac = v.e0 > v.emin ? clamp((v.e0 - e) / (v.e0 - v.emin), 0, 1) : 1;
+  const xl = 20, xr = w - 90, top = 22, bot = h - 22, Wm = (bot - top) * 0.26;
+  const tp = Wm * (v.e0 > 0 ? e / v.e0 : 0), tt = Wm * clamp(v.emin / (v.e0 || 1), 0, 1);
+  const rough = .5 + frac * 5, yT = top + tp, yB = bot - tp, col = `hsl(${150 * (1 - frac)},65%,46%)`;
+  const edge = (x, s) => { const n = NZ[Math.floor((x - xl) / 4) % NZ.length]; return s < 0 ? yT + n * rough : yB - n * rough; };
+  const wall = (y0, s) => { g.beginPath(); g.moveTo(xl, y0); g.lineTo(xr, y0); for (let x = xr; x >= xl; x -= 4) g.lineTo(x, edge(x, s)); g.closePath(); g.fill(); };
+  const acc = css("--accent");
+  g.fillStyle = acc; g.globalAlpha = .22; g.fillRect(xl, yT, xr - xl, Math.max(yB - yT, 0)); g.globalAlpha = 1;
+  const wd = xr - xl, ch = Math.max(yB - yT - 8, 1);
+  g.fillStyle = css("--accent2"); g.globalAlpha = .35; g.fillRect(xl, yT, wd, top + Wm - yT); g.fillRect(xl, bot - Wm, wd, yB - bot + Wm); g.globalAlpha = 1;
+  g.fillStyle = acc;
+  PF.forEach(p => {
+    if (dt > 0){ p.x += p.v * dt * .3 * (1 - Math.pow(2 * p.y - 1, 2) * .6); if (p.x > 1){ p.x = 0; p.y = Math.random(); } }
+    g.globalAlpha = .85; g.beginPath(); g.arc(xl + p.x * wd, yT + 4 + p.y * ch, p.r, 0, TAU); g.fill();
+  });
+  g.globalAlpha = 1;
+  if (dt > 0){
+    if (DB.length < 40 && Math.random() < dt * 6 * (.3 + frac)){
+      const sd = Math.random() < .5 ? -1 : 1;
+      DB.push({x: xl + Math.random() * wd, y: sd < 0 ? yT : yB, vy: (sd < 0 ? 1 : -1) * (8 + Math.random() * 10), life: 1});
+    }
+    DB.forEach(b => { b.x += 45 * dt; b.y += b.vy * dt; b.life -= dt * .6; });
+    DB = DB.filter(b => b.life > 0 && b.x < xr);
+  }
+  g.fillStyle = col;
+  DB.forEach(b => { g.globalAlpha = Math.max(b.life, 0); g.beginPath(); g.arc(b.x, b.y, 2.6, 0, TAU); g.fill(); });
+  g.globalAlpha = 1;
+  g.fillStyle = col; wall(top, -1); wall(bot, 1);
+  g.lineWidth = 1.5; g.setLineDash([2, 4]); g.strokeStyle = css("--muted");
+  [top + Wm, bot - Wm].forEach(y => { g.beginPath(); g.moveTo(xl, y); g.lineTo(xr, y); g.stroke(); });
+  g.lineWidth = 2; g.setLineDash([6, 4]); g.strokeStyle = css("--accent2");
+  [top + tt, bot - tt].forEach(y => { g.beginPath(); g.moveTo(xl, y); g.lineTo(xr, y); g.stroke(); });
+  g.setLineDash([]); g.lineWidth = 1.5; g.strokeStyle = css("--text"); g.fillStyle = css("--text");
+  const mx = xr + 12;
+  g.beginPath(); g.moveTo(mx, top); g.lineTo(mx, yT); g.moveTo(mx - 5, top); g.lineTo(mx + 5, top); g.moveTo(mx - 5, yT); g.lineTo(mx + 5, yT); g.stroke();
+  g.font = "bold 13px system-ui,sans-serif"; g.textAlign = "left"; g.fillText(fmt(e, 2) + " mm", mx + 10, top + Wm / 2 + 4);
+  g.font = "12px system-ui,sans-serif"; g.fillStyle = css("--muted"); g.fillText("Flujo de agua →", xl, 14);
+  const loss = v.e0 > 0 ? (v.e0 - e) / v.e0 * 100 : 0, hit = e <= v.emin;
+  legend(g, [[col, "Pared"], [acc, "Agua"], [css("--accent2"), "Perdido"]], xr + 8, h - 64);
+  $("syF").textContent = wearMsg(v, e, t);
+  if (chD){ chD.$t = t; chD.draw(); }
+  $("rF").innerHTML = `t = ${fmt(t, 1)} h · espesor = ${fmt(e, 3)} mm · desgaste = ${fmt(loss, 1)} %<br><span class="badge ${hit ? "warn" : "ok"}">${hit ? "Umbral alcanzado" : "Por encima del umbral"}</span>`;
+}
+
+function initViz(v, d, s){
+  ST = {v, d, s}; anim.D = anim.V = anim.F = false;
+  $("plD").textContent = $("plV").textContent = $("plF").textContent = "▶ Reproducir";
+  $("sD").max = v.horas; $("sD").value = 0;
+  $("sV").max = v.tf; $("sV").value = 0;
+  $("sF").max = v.horas; $("sF").value = 0; initFlow();
+  ST.I = vibInfo(v); const I = ST.I;
+  $("cfV").innerHTML = I ? stat("Frecuencia natural ωn", fmt(I.wn, 2) + " rad/s") + stat("Amortiguamiento ζ", fmt(I.z, 2) + " · " + (I.z === 0 ? "sin amortiguar" : I.z < .98 ? "subamortiguado" : I.z < 1.02 ? "crítico" : "sobreamortiguado")) + stat("Razón ω/ωn", fmt(I.r, 2) + (Math.abs(I.r - 1) < .15 && I.z < .7 ? " · resonancia" : "")) : "";
+  drawD(); drawV(); drawF(0);
+}
+
+function setPlay(k, on){
+  anim[k] = on; $("pl" + k).textContent = on ? "⏸ Pausar" : "▶ Reproducir";
+  if (on && k !== "V" && +$("s" + k).value >= ST.v.horas) $("s" + k).value = 0;
+  if (on && !raf){ last = performance.now(); raf = requestAnimationFrame(loop); }
+}
+
+function loop(ts){
+  raf = 0; const dt = Math.min((ts - last) / 1000, 0.1); last = ts; FT += dt;
+  if (anim.D){
+    const sl = $("sD"), H = ST.v.horas; let t = +sl.value + H * dt / 12 * (+$("spD").value);
+    if (t >= H){ t = H; setPlay("D", false); }
+    sl.value = t; drawD();
+  }
+  if (anim.V){
+    const sl = $("sV"), T = ST.v.tf; let t = +sl.value + dt * (+$("spV").value);
+    if (t > T) t = t % T;
+    sl.value = t; drawV();
+  }
+  if (anim.F){
+    const sl = $("sF"), H = ST.v.horas; let t = +sl.value + H * dt / 12 * (+$("spF").value);
+    if (t >= H){ t = H; setPlay("F", false); }
+    sl.value = t; drawF(dt);
+  }
+  if ((anim.D || anim.V || anim.F) && !raf) raf = requestAnimationFrame(loop);
+}
+
+$("sD").addEventListener("input", drawD);
+$("sV").addEventListener("input", drawV);
+$("plD").addEventListener("click", () => ST && setPlay("D", !anim.D));
+$("plV").addEventListener("click", () => ST && setPlay("V", !anim.V));
+$("sF").addEventListener("input", () => drawF(0));
+$("plF").addEventListener("click", () => ST && setPlay("F", !anim.F));
+window.addEventListener("resize", () => { drawD(); drawV(); drawF(0); });
+
+$("calc").addEventListener("click", simular);
+$("reset").addEventListener("click", () => { IDS.forEach(i => $(i).value = DEFAULTS[i]); simular(); });
+IDS.forEach(i => $(i).addEventListener("keydown", e => { if (e.key === "Enter") simular(); }));
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", simular);
+simular();
+</script>
+</body>
+</html>
